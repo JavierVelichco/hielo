@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Glaciares Interactivo</title>
+    <style>
+        /* ... tus estilos originales ... (omitido aquí para brevedad) */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: url('./img/glaciarazul.png') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #startBtn {
+            position: absolute;
+            background-color: rgba(2, 136, 209, 0.8);
+            color: white;
+            padding: 20px 35px;
+            border: none;
+            font-size: 1.4em;
+            border-radius: 8px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 1s ease;
+            pointer-events: none;
+            z-index: 1001;
+        }
+
+        .video-container {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .snowflake {
+            position: fixed;
+            top: -10px;
+            user-select: none;
+            pointer-events: none;
+            z-index: 9999;
+            animation-name: fall;
+            animation-timing-function: linear;
+            animation-iteration-count: 1;
+            animation-fill-mode: forwards;
+        }
+
+        .snowflake.circle {
+            background-color: white;
+            border-radius: 50%;
+            box-shadow: 0 0 6px white;
+        }
+
+        .snowflake.text {
+            color: white;
+            font-size: 1.5em;
+            text-shadow: 0 0 5px white;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translate(0, 0);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(var(--driftX, 80px), 100vh);
+                opacity: 0;
+            }
+        }
+    </style>
+
+    <!-- p5.js -->
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/addons/p5.sound.min.js"></script>
+</head>
+
+<body>
+
+    <button id="startBtn">▶ Ver más</button>
+
+    <div class="video-container" id="videoContainer">
+        <video id="glacierVideo" controls autoplay>
+            <source src="./video/glaciar.mp4" type="video/mp4">
+            Tu navegador no soporta el video.
+        </video>
+        <button id="skipBtn"
+            style="position: absolute; top: 20px; right: 20px; z-index: 1002; padding: 10px 20px; font-size: 1em; cursor: pointer;">Saltar</button>
+    </div>
+
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const videoContainer = document.getElementById('videoContainer');
+        const glacierVideo = document.getElementById('glacierVideo');
+
+        // Crear botón "Saltar" dinámicamente o asegúrate que exista en el HTML
+        let skipBtn = document.getElementById('skipBtn');
+        if (!skipBtn) {
+            skipBtn = document.createElement('button');
+            skipBtn.id = 'skipBtn';
+            skipBtn.textContent = 'Saltar';
+            skipBtn.style.cssText = `
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1002;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+        `;
+            videoContainer.appendChild(skipBtn);
+        }
+
+        // Mostrar el botón principal luego de 2 segundos (pantalla principal)
+        setTimeout(() => {
+            startBtn.style.opacity = '1';
+            startBtn.style.pointerEvents = 'auto';
+        }, 2000);
+
+        // Función para detener video y ocultar contenedor
+        function stopVideo() {
+            glacierVideo.pause();
+            glacierVideo.currentTime = 0;
+            videoContainer.style.display = 'none';
+
+            // Mostrar botón principal al terminar o saltar video
+            startBtn.style.opacity = '1';
+            startBtn.style.pointerEvents = 'auto';
+        }
+
+        // Evento click para iniciar video
+        startBtn.addEventListener('click', () => {
+            videoContainer.style.display = 'block';
+            glacierVideo.currentTime = 0;
+            glacierVideo.play();
+
+            // Ocultar botón principal mientras se reproduce video
+            startBtn.style.opacity = '0';
+            startBtn.style.pointerEvents = 'none';
+
+            setTimeout(() => {
+                if (videoContainer.requestFullscreen) {
+                    videoContainer.requestFullscreen();
+                } else if (videoContainer.webkitRequestFullscreen) {
+                    videoContainer.webkitRequestFullscreen();
+                } else if (videoContainer.msRequestFullscreen) {
+                    videoContainer.msRequestFullscreen();
+                }
+            }, 200);
+        });
+
+        // Evento click para botón saltar
+        skipBtn.addEventListener('click', () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            }
+            stopVideo();
+            startP5Sketch(); // Iniciar p5.js si quieres que inicie al saltar
+        });
+
+        // Cuando termina el video
+        glacierVideo.addEventListener('ended', () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            }
+            stopVideo();
+            startP5Sketch();
+        });
+
+        // Detectar salida de fullscreen para detener video y lanzar p5.js
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                stopVideo();
+                startP5Sketch();
+            }
+        });
+
+        // Copos de nieve (snowflake) animados
+        function createSnowflake() {
+            const snowflake = document.createElement('div');
+            const isCircle = Math.random() < 0.85;
+            snowflake.classList.add('snowflake', isCircle ? 'circle' : 'text');
+
+            if (isCircle) {
+                const size = Math.random() < 0.15 ? Math.random() * 20 + 5 : Math.random() * 8 + 4;
+                snowflake.style.width = `${size}px`;
+                snowflake.style.height = `${size}px`;
+            } else {
+                snowflake.textContent = '❄';
+                snowflake.style.fontSize = `${Math.random() * 20 + 15}px`;
+            }
+
+            const duration = Math.random() * 5 + 3;
+            const delay = Math.random() * 2;
+            const driftX = Math.random() * 200 - 150;
+
+            snowflake.style.left = Math.random() * window.innerWidth + 'px';
+            snowflake.style.opacity = Math.random() * 0.6 + 0.3;
+            snowflake.style.animationDuration = `${duration}s`;
+            snowflake.style.animationDelay = `${delay}s`;
+            snowflake.style.setProperty('--driftX', `${driftX}px`);
+
+            document.body.appendChild(snowflake);
+
+            setTimeout(() => {
+                snowflake.remove();
+            }, 7500);
+        }
+
+        setInterval(createSnowflake, 150);
+    </script>
+
+    <!-- Script p5.js (igual que tu versión, sin tocar) -->
+    <script>
+        let p5Started = false;
+
+        function startP5Sketch() {
+            if (p5Started) return;
+            p5Started = true;
+            // Ocultar botón y video container si quedan visibles
+            startBtn.style.display = 'none';
+            videoContainer.style.display = 'none';
+
+
+            // 👉 Corregir fondo y layout para mostrar correctamente el canvas
+            document.body.style.background = 'black';
+            document.body.style.display = 'block';
+
+
+            new p5((sketch) => {
+                let port;
+                let reader;
+                let buffer = "";
+
+                let images = [];
+                let sounds = [];
+                let currentImage;
+
+                sketch.preload = function () {
+                    for (let i = 1; i <= 6; i++) {
+                        images.push(sketch.loadImage(`imagen${i}.jpg`));
+                    }
+
+                    sketch.soundFormats('mp3');
+                    for (let i = 1; i <= 5; i++) {
+                        sounds.push(sketch.loadSound(`sonido${i}.mp3`));
+                    }
+                };
+
+                sketch.setup = function () {
+                    let canvas = sketch.createCanvas(window.innerWidth, window.innerHeight);
+                    canvas.style('position', 'absolute');
+                    canvas.style('top', '0');
+                    canvas.style('left', '0');
+                    canvas.style('z-index', '2000');
+
+                    sketch.imageMode(sketch.CENTER);
+                    sketch.textAlign(sketch.CENTER, sketch.CENTER);
+                    sketch.textSize(24);
+                    sketch.fill(255);
+                    sketch.background(0);
+                    sketch.text("Haz clic para conectar al Arduino", sketch.width / 2, sketch.height / 2);
+                };
+
+                sketch.windowResized = function () {
+                    sketch.resizeCanvas(window.innerWidth, window.innerHeight);
+                };
+
+                sketch.mousePressed = async function () {
+                    try {
+                        port = await navigator.serial.requestPort();
+                        await port.open({ baudRate: 9600 });
+                        reader = port.readable.getReader();
+                        readLoop();
+                    } catch (err) {
+                        console.error("❌ Error al abrir puerto:", err);
+                    }
+                };
+
+                async function readLoop() {
+                    const decoder = new TextDecoder();
+
+                    while (true) {
+                        try {
+                            const { value, done } = await reader.read();
+                            if (done) break;
+
+                            if (value) {
+                                buffer += decoder.decode(value);
+                                let lines = buffer.split('\n');
+                                buffer = lines.pop();
+
+                                for (let line of lines) {
+                                    const data = line.trim();
+                                    if (["A", "B"].includes(data)) {
+                                        handleSensor(data);
+                                        console.log("📨 Recibido:", data);
+                                    }
+                                }
+                            }
+                        } catch (err) {
+                            console.error("❌ Error leyendo:", err);
+                            break;
+                        }
+                    }
+                }
+
+                function handleSensor(sensor) {
+                    if (sensor === "A" && images.length > 0) {
+                        currentImage = sketch.random(images);
+                    } else if (sensor === "B" && sounds.length > 0) {
+                        const s = sketch.random(sounds);
+                        if (s) s.play();
+                    }
+                }
+
+                sketch.draw = function () {
+                    sketch.background(0);
+
+                    if (!port) {
+                        sketch.text("Haz clic para conectar al Arduino", sketch.width / 2, sketch.height / 2);
+                    } else if (currentImage) {
+                        sketch.image(currentImage, sketch.width / 2, sketch.height / 2, sketch.width, sketch.height);
+                    } else {
+                        sketch.text("Esperando activación de sensores...", sketch.width / 2, sketch.height / 2);
+                    }
+                };
+            });
+        }
+    </script>
+
+</body>
+
+</html>
