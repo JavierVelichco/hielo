@@ -106,19 +106,20 @@
     <button id="startBtn">▶ Ver más</button>
 
     <div class="video-container" id="videoContainer">
-        <video id="glacierVideo" controls autoplay>
-            <source src="./video/glaciar.mp4" type="video/mp4">
-            Tu navegador no soporta el video.
-        </video>
+        <div id="player"></div>
+
         <button id="skipBtn"
-            style="position: absolute; top: 20px; right: 20px; z-index: 1002; padding: 10px 20px; font-size: 1em; cursor: pointer;">Saltar</button>
+            style="position: absolute; top: 20px; right: 20px; z-index: 1002; padding: 10px 20px; font-size: 1em; cursor: pointer;">
+            Saltar
+        </button>
     </div>
 
+    <script src="https://www.youtube.com/iframe_api"></script>
 
     <script>
         const startBtn = document.getElementById('startBtn');
         const videoContainer = document.getElementById('videoContainer');
-        const glacierVideo = document.getElementById('glacierVideo');
+        let player;
 
         // Crear botón "Saltar" dinámicamente o asegúrate que exista en el HTML
         let skipBtn = document.getElementById('skipBtn');
@@ -146,24 +147,28 @@
 
         // Función para detener video y ocultar contenedor
         function stopVideo() {
-            glacierVideo.pause();
-            glacierVideo.currentTime = 0;
+            if (player) {
+                player.stopVideo();
+            }
             videoContainer.style.display = 'none';
 
-            // Mostrar botón principal al terminar o saltar video
+            // Mostrar botón principal
             startBtn.style.opacity = '1';
             startBtn.style.pointerEvents = 'auto';
         }
 
+
         // Evento click para iniciar video
         startBtn.addEventListener('click', () => {
             videoContainer.style.display = 'block';
-            glacierVideo.currentTime = 0;
-            glacierVideo.play();
 
-            // Ocultar botón principal mientras se reproduce video
             startBtn.style.opacity = '0';
             startBtn.style.pointerEvents = 'none';
+
+            if (player) {
+                player.seekTo(0);
+                player.playVideo();
+            }
 
             setTimeout(() => {
                 if (videoContainer.requestFullscreen) {
@@ -176,6 +181,7 @@
             }, 200);
         });
 
+
         // Evento click para botón saltar
         skipBtn.addEventListener('click', () => {
             if (document.fullscreenElement) {
@@ -183,15 +189,6 @@
             }
             stopVideo();
             startP5Sketch(); // Iniciar p5.js si quieres que inicie al saltar
-        });
-
-        // Cuando termina el video
-        glacierVideo.addEventListener('ended', () => {
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-            }
-            stopVideo();
-            startP5Sketch();
         });
 
         // Detectar salida de fullscreen para detener video y lanzar p5.js
@@ -265,7 +262,7 @@
 
                 sketch.preload = function () {
                     for (let i = 1; i <= 6; i++) {
-                        images.push(sketch.loadImage(`imagen${i}.jpg`));
+                        images.push(sketch.loadImage(`img/imagen${i}.jpg`));
                     }
 
                     sketch.soundFormats('mp3');
@@ -354,6 +351,38 @@
                 };
             });
         }
+
+        window.onYouTubeIframeAPIReady = function () {
+            player = new YT.Player('player', {
+                height: '100%',
+                width: '100%',
+                videoId: '_A3QiLxtlw0',
+                playerVars: {
+                    autoplay: 0,
+                    controls: 0,
+                    modestbranding: 1,
+                    rel: 0,
+                    showinfo: 0,
+                    fs: 0
+                },
+                events: {
+                    onReady: (event) => {
+                        // No hacer autoplay aún, esperamos al click
+                    },
+                    onStateChange: (event) => {
+                        if (event.data === YT.PlayerState.ENDED) {
+                            if (document.fullscreenElement) {
+                                document.exitFullscreen();
+                            }
+                            stopVideo();
+                            startP5Sketch();
+                        }
+                    }
+                }
+            });
+        };
+
+
     </script>
 
 </body>
